@@ -54,6 +54,18 @@ Cloud runtime opens a PR (`autoCreatePR`) and skips the reviewer-request step (`
 
 Local runtime is optional (`CURSOR_RUNTIME=local` + `CURSOR_REPO_PATH`): it creates a `fix/<ticket>-<slug>` or `feat/<ticket>-<slug>` branch and commits instead of opening a PR. The prefix is `fix/` for Bug-labeled / broken behavior, `feat/` for Feature or Enhancement. Cloud agents are told to use that same name (and to rename off `cursor/` if the VM starts there). Cursor’s cloud API still auto-generates `cursor/...` unless the agent successfully renames; the ticket reply always prints the branch Cursor actually pushed.
 
+## Deploy (Coolify)
+
+This bot is one long-running process. It is **not** a website, so it does not need a domain or `docker compose` with Postgres/web.
+
+1. Push this repo to GitHub.
+2. In Coolify: **New resource → Application** → this repo.
+3. Build pack: **Dockerfile** (`Dockerfile` at the repo root).
+4. Do **not** assign a domain. Do not enable the HTTP proxy.
+5. Set env vars (same as `.env.example`, with the live API URL).
+
+Use **Docker Compose** in Coolify only if that is how you create workers there — `docker-compose.yml` is a one-service wrapper around the same Dockerfile.
+
 ## Env
 
 | Variable | Purpose |
