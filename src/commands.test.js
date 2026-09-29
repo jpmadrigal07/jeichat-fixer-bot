@@ -3,8 +3,20 @@ import { helpText, parseFixerCommand } from "./commands.js";
 
 test("maps retry only, not reply or again", () => {
   expect(parseFixerCommand("retry")).toEqual({ name: "retry" });
+  expect(parseFixerCommand("retry base develop")).toEqual({
+    name: "retry",
+    baseBranch: "develop",
+  });
   expect(parseFixerCommand("reply")).toEqual({ name: "unknown", raw: "reply" });
   expect(parseFixerCommand("again")).toEqual({ name: "unknown", raw: "again" });
+});
+
+test("parses base branch command", () => {
+  expect(parseFixerCommand("base develop")).toEqual({
+    name: "base",
+    branch: "develop",
+  });
+  expect(parseFixerCommand("base")).toEqual({ name: "base", branch: "" });
 });
 
 test("maps fix, status, and empty mention to help/fix", () => {

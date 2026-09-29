@@ -68,7 +68,12 @@ async function disposeAgent(agent) {
 export async function fixTicket(ticket, options = {}) {
   let agent;
   try {
-    agent = await Agent.create(cursorAgentOptions());
+    agent = await Agent.create(
+      cursorAgentOptions({
+        repoUrl: ticket.repoUrl,
+        startingRef: ticket.baseRef,
+      }),
+    );
     if (typeof options.onAgent === "function") {
       options.onAgent(agent);
     }

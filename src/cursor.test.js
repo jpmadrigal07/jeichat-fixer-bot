@@ -40,6 +40,31 @@ test("cloud clones the git URL and skips reviewer request", () => {
   });
 });
 
+test("cloud accepts per-run repo and starting ref", () => {
+  process.env.CURSOR_API_KEY = "cursor_test";
+  process.env.CURSOR_RUNTIME = "cloud";
+
+  expect(
+    cursorAgentOptions({
+      repoUrl: "https://github.com/acme/other",
+      startingRef: "develop",
+    }),
+  ).toEqual({
+    apiKey: "cursor_test",
+    model: { id: "composer-2.5" },
+    cloud: {
+      repos: [
+        {
+          url: "https://github.com/acme/other",
+          startingRef: "develop",
+        },
+      ],
+      autoCreatePR: true,
+      skipReviewerRequest: true,
+    },
+  });
+});
+
 test("local uses CURSOR_REPO_PATH", () => {
   process.env.CURSOR_API_KEY = "cursor_test";
   process.env.CURSOR_RUNTIME = "local";

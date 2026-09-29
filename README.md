@@ -42,13 +42,16 @@ CURSOR_REPO_REF=main
 bun run start
 ```
 
-6. Open a ticket, set **Assignee** to the fixer bot. After a PR exists, tag the bot in the ticket (`@Fix Bot retry`) to run again. Tag `@Fix Bot status` anytime to ask if Cursor is still running.
+6. Connect the **ticket board** to GitHub in JeiChat (board settings → GitHub). The fixer reads `owner/repo` from that link (fallback: `CURSOR_REPO_URL` or `CURSOR_REPO_MAP`).
+7. Open a ticket, set **Assignee** to the fixer bot. After assign (15s delay) it posts the linked repo and asks for a base branch: `@Fix Bot base develop`.
+8. Cursor runs only when **both** are true: checker `Verdict: CONFIRM` and a saved base branch (order does not matter). Tag `@Fix Bot status` anytime; `@Fix Bot retry` re-runs (optionally `@Fix Bot retry base <branch>`).
 
-The bot waits **15 seconds** so a mis-assign can be undone (no reply if you unassign in time). On connect it also scans tickets already assigned to it (reconnect backfill) and runs those after the same delay. Then it looks at ticket messages (newest first) for a **bot** `Verdict: CONFIRM` or `Verdict: REFUTE` (same parser as the checker). Humans and this fixer’s own messages are ignored. If `CHECKER_BOT_USER_ID` is set, only that bot counts.
+The bot waits **15 seconds** on assign so a mis-assign can be undone. On connect it backfills tickets already assigned to it the same way (prompt for base, no auto-fix). It reads ticket messages (newest first) for a **bot** `Verdict: CONFIRM` or `Verdict: REFUTE`. If `CHECKER_BOT_USER_ID` is set, only that bot counts.
 
-- No verdict → comments that it needs a CONFIRM, does not start a fix
+- Missing base → asks for `@Fix Bot base <branch>`; does not call Cursor
+- Missing CONFIRM → says it will wait for the checker
 - **REFUTE** → comments and stops
-- **CONFIRM** → uses that message as the reproduction brief, downloads its screenshots and sends them to Cursor, comments that it is working, sets status to **In progress**, and replies with the result. The reply always ends with `PR:` / `Branch:` from Cursor git metadata when a PR was opened. If this bot already posted a `PR:` line, it skips a new run and points at that URL. Tag `@Fix Bot retry` in the ticket to run again without unassigning. Tag `@Fix Bot status` to check whether a Cursor run is still in flight (elapsed time + agent URL when known). On **FIXED** it sets status to **In review**. On **FAILED**, **NOT A BUG**, a crash, or an unreadable result it sets status back to **Todo** so the ticket does not look like a fix in flight. It does not unassign itself.
+- **CONFIRM** + base → uses the checker message as the brief, clones the board’s repo at the chosen base ref, downloads checker screenshots, sets **In progress**, and replies with the result (including `PR:` / `Branch:` when Cursor opens a PR). Existing PR idempotency and `@Fix Bot retry` behave as before.
 
 Cloud runtime opens a PR (`autoCreatePR`) and skips the reviewer-request step (`skipReviewerRequest`) so unattended PRs stay quiet. The PR title is whatever Cursor generates. The agent is told to put the ticket id and JeiChat URL in the body. Two tickets can run at once; a ticket already being fixed is skipped.
 
@@ -76,7 +79,10 @@ Use **Docker Compose** in Coolify only if that is how you create workers there �
 | `CHECKER_BOT_USER_ID` | Optional. Checker `userId` from that bot’s `GET /bots/@me`. Pins CONFIRM/REFUTE to that bot |
 | `CURSOR_API_KEY` | Cursor user or service-account key |
 | `CURSOR_RUNTIME` | `cloud` (default in `.env.example`) or `local` |
-| `CURSOR_REPO_URL` | GitHub URL for cloud (`https://github.com/jpmadrigal07/jeichat`) |
-| `CURSOR_REPO_REF` | Branch / SHA for cloud (`main` default) |
+| `CURSOR_REPO_URL` | Fallback GitHub URL when the board has no GitHub link |
+| `CURSOR_REPO_REF` | Fallback cloud ref only; per-ticket base comes from `@Fix Bot base` |
+| `CURSOR_REPO_MAP` | Optional JSON map of board channel id → repo URL |
+| `CURSOR_ALLOWED_REPOS` | Optional comma-separated repo URLs the bot may use |
+| `CURSOR_ALLOWED_BRANCHES` | Optional comma-separated base branches humans may set |
 | `CURSOR_REPO_PATH` | JeiChat checkout for local runtime |
 | `CURSOR_MODEL` | Model id (`composer-2.5` default) |

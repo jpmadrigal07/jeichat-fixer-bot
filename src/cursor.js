@@ -1,4 +1,4 @@
-export function cursorAgentOptions() {
+export function cursorAgentOptions(overrides = {}) {
   const apiKey = process.env.CURSOR_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
@@ -7,13 +7,20 @@ export function cursorAgentOptions() {
   }
 
   const model = { id: process.env.CURSOR_MODEL?.trim() || "composer-2.5" };
-  const repoUrl = process.env.CURSOR_REPO_URL?.trim();
+  const repoUrl =
+    overrides.repoUrl?.trim() || process.env.CURSOR_REPO_URL?.trim();
+  const startingRef =
+    overrides.startingRef?.trim() ||
+    process.env.CURSOR_REPO_REF?.trim() ||
+    "main";
   const runtime =
     process.env.CURSOR_RUNTIME?.trim() || (repoUrl ? "cloud" : "local");
 
   if (runtime === "cloud") {
     if (!repoUrl) {
-      throw new Error("CURSOR_REPO_URL is required when CURSOR_RUNTIME=cloud");
+      throw new Error(
+        "CURSOR_REPO_URL is required when CURSOR_RUNTIME=cloud (or pass repoUrl per ticket)",
+      );
     }
     return {
       apiKey,
@@ -22,7 +29,7 @@ export function cursorAgentOptions() {
         repos: [
           {
             url: repoUrl,
-            startingRef: process.env.CURSOR_REPO_REF?.trim() || "main",
+            startingRef,
           },
         ],
         autoCreatePR: true,
