@@ -69,9 +69,8 @@ export async function resolveRepoUrl(client, workspaceId, boardChannelId) {
   );
 }
 
-export function formatRepoPrompt(repoUrl, botName = "Fix Bot") {
-  const tag = `@${String(botName).trim() || "Fix Bot"}`;
-  return `Linked repo: \`${repoUrl}\`. Reply with \`${tag} base <branch>\` (for example \`${tag} base develop\`). I will start Cursor once the checker CONFIRMs and the base branch is set.`;
+export function formatRepoPrompt(repoUrl) {
+  return `Linked repo: \`${repoUrl}\`. Put \`Branch: develop\` (or your base branch) in the ticket description (bug template). I will start Cursor once the checker CONFIRMs and \`Branch:\` is set.`;
 }
 
 export { validateBaseBranch };

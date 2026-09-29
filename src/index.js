@@ -30,9 +30,9 @@ import { ticketsAssignedToBot } from "./backfill.js";
 
 import {
 
-  latestBaseBranchFromMessages,
-
   parseFixerCommand,
+
+  resolveBaseBranch,
 
   helpText,
 
@@ -136,13 +136,13 @@ client.on("ready", () => {
 
   console.log(
 
-    "Assign me to a ticket, set base with @<me> base <branch>, then wait for checker CONFIRM.",
+    "Assign me to a ticket with Branch: in the description, then wait for checker CONFIRM.",
 
   );
 
   console.log(
 
-    `Or tag me in the ticket: @${client.user?.name} base | retry | status | fix | help`,
+    `Or tag me in the ticket: @${client.user?.name} retry | status | fix | help`,
 
   );
 
@@ -318,7 +318,7 @@ async function handleMention(message) {
 
         channelId,
 
-        "Assign me to this ticket first, then tag me with `base`, `retry`, or `fix`.",
+        "Assign me to this ticket first, then tag me with `retry` or `fix`.",
 
       );
 
@@ -328,23 +328,7 @@ async function handleMention(message) {
 
 
 
-    if (command.name === "base") {
-
-      await saveBaseBranch(channelId, channel.parentId, command.branch);
-
-      return;
-
-    }
-
-
-
     if (command.name === "retry") {
-
-      if (command.baseBranch) {
-
-        await saveBaseBranch(channelId, channel.parentId, command.baseBranch);
-
-      }
 
       void runFix(channelId, { forceRetry: true });
 
@@ -376,55 +360,28 @@ async function handleMention(message) {
 
 
 
-async function saveBaseBranch(ticketId, boardChannelId, branchInput) {
+async function restorePendingBase(ticketId, ticket) {
+  const workspaceId = client.user?.workspaceId;
+  if (!workspaceId) return;
 
-  const validated = validateBaseBranch(branchInput);
+  const restored = resolveBaseBranch({ description: ticket.description });
+  if (!restored) {
+    pending.clear(ticketId);
+    return;
+  }
 
+  const validated = validateBaseBranch(restored);
   if (!validated.ok) {
-
-    await client.send(ticketId, validated.reason);
-
+    pending.clear(ticketId);
     return;
-
   }
 
+  const boardId = ticket.parentId;
+  if (!boardId) return;
 
-
-  const workspaceId = client.user.workspaceId;
-
-  let repoUrl;
-
-  try {
-
-    repoUrl = await resolveRepoUrl(client, workspaceId, boardChannelId);
-
-  } catch (error) {
-
-    const detail = error instanceof Error ? error.message : "unknown error";
-
-    await client.send(ticketId, detail);
-
-    return;
-
-  }
-
-
-
+  const repoUrl = await resolveRepoUrl(client, workspaceId, boardId);
   pending.setBase(ticketId, validated.branch, repoUrl);
-
-  await client.send(
-
-    ticketId,
-
-    `Base branch set to \`${validated.branch}\` on \`${repoUrl}\`.`,
-
-  );
-
-  await maybeStartFix(ticketId, { notifyMissing: true });
-
 }
-
-
 
 async function promptForBase(ticketId) {
 
@@ -450,31 +407,7 @@ async function promptForBase(ticketId) {
 
 
 
-    if (!pending.hasBase(ticketId)) {
-
-      const restored = latestBaseBranchFromMessages(
-
-        ticket.messageRows,
-
-        client.user.name,
-
-      );
-
-      if (restored) {
-
-        const validated = validateBaseBranch(restored);
-
-        if (validated.ok) {
-
-          const repoUrl = await resolveRepoUrl(client, workspaceId, boardId);
-
-          pending.setBase(ticketId, validated.branch, repoUrl);
-
-        }
-
-      }
-
-    }
+    await restorePendingBase(ticketId, ticket);
 
 
 
@@ -490,7 +423,7 @@ async function promptForBase(ticketId) {
 
     const repoUrl = await resolveRepoUrl(client, workspaceId, boardId);
 
-    await client.send(ticketId, formatRepoPrompt(repoUrl, client.user.name));
+    await client.send(ticketId, formatRepoPrompt(repoUrl));
 
   } catch (error) {
 
@@ -517,6 +450,8 @@ async function maybeStartFix(ticketId, options = {}) {
 
 
   const ticket = await loadTicket(ticketId);
+
+  await restorePendingBase(ticketId, ticket);
 
   const check = latestCheckVerdict(ticket.messageRows, {
 
@@ -615,6 +550,8 @@ async function runFix(ticketId, options = {}) {
     if (!botUserId || ticket.assigneeId !== botUserId) return;
 
 
+
+    await restorePendingBase(ticketId, ticket);
 
     const check = latestCheckVerdict(ticket.messageRows, {
 
